@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { deleteFirebaseUser } from '../config/firebase.js';
 
 // Get all patients
 export const getAllPatients = async (req, res) => {
@@ -127,16 +128,36 @@ export const deletePatient = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
+    // First, get the patient to check if they exist
+    const { data: patient, error: fetchError } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Delete from Supabase database
+    const { error: deleteError } = await supabase
       .from('patients')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
 
+    // Delete from Firebase Auth (using patient id as UID)
+    const firebaseResult = await deleteFirebaseUser(id);
+    
     res.json({
       success: true,
-      message: 'Patient deleted successfully'
+      message: 'Patient deleted successfully',
+      firebaseDeleted: firebaseResult.success,
+      firebaseMessage: firebaseResult.message
     });
   } catch (error) {
     console.error('Error deleting patient:', error);

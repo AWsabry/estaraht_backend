@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { deleteFirebaseUser } from '../config/firebase.js';
 
 // Get all doctors
 export const getAllDoctors = async (req, res) => {
@@ -127,16 +128,44 @@ export const deleteDoctor = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
+    // First, get the doctor to check if they exist
+    const { data: doctor, error: fetchError } = await supabase
+      .from('doctors')
+      .select('doctor_id')
+      .eq('doctor_id', id)
+      .single();
+
+    if (fetchError || !doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found'
+      });
+    }
+
+    // Cascade: delete related withdraws first (foreign key)
+    const { error: withdrawsError } = await supabase
+      .from('withdraws')
+      .delete()
+      .eq('doctor_id', id);
+
+    if (withdrawsError) throw withdrawsError;
+
+    // Delete from Supabase database
+    const { error: deleteError } = await supabase
       .from('doctors')
       .delete()
       .eq('doctor_id', id);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
 
+    // Delete from Firebase Auth (using doctor_id as UID)
+    const firebaseResult = await deleteFirebaseUser(id);
+    
     res.json({
       success: true,
-      message: 'Doctor deleted successfully'
+      message: 'Doctor deleted successfully',
+      firebaseDeleted: firebaseResult.success,
+      firebaseMessage: firebaseResult.message
     });
   } catch (error) {
     console.error('Error deleting doctor:', error);

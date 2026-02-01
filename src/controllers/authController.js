@@ -1,4 +1,37 @@
 import { supabase } from '../config/supabase.js';
+import admin from '../config/firebase.js';
+import crypto from 'crypto';
+
+// Helper: find user by email (doctor or patient)
+const findUserByEmail = async (email) => {
+  const { data: doctor } = await supabase
+    .from('doctors')
+    .select('doctor_id, email, full_name')
+    .eq('email', email)
+    .single();
+
+  if (doctor) return { user: doctor, type: 'doctor', uid: doctor.doctor_id };
+
+  const { data: patient } = await supabase
+    .from('patients')
+    .select('id, email, name')
+    .eq('email', email)
+    .single();
+
+  if (patient) return { user: patient, type: 'patient', uid: patient.id };
+
+  return null;
+};
+
+// Helper: generate random password
+const generatePassword = () => {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let pass = '';
+  for (let i = 0; i < 12; i++) {
+    pass += chars[crypto.randomInt(0, chars.length)];
+  }
+  return pass;
+};
 
 // Login admin user
 export const login = async (req, res) => {
@@ -63,6 +96,61 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error during login',
+      error: error.message
+    });
+  }
+};
+
+// Reset password: provide email, get a new generated password (updates Firebase Auth)
+export const resetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    const userInfo = await findUserByEmail(email);
+
+    if (!userInfo) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const newPassword = generatePassword();
+
+    await admin.auth().updateUser(userInfo.uid, { password: newPassword });
+
+    console.log(`✅ Password reset for ${email} (${userInfo.type})`);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+      data: {
+        email,
+        userType: userInfo.type,
+        userName: userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name,
+        newPassword
+      }
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+
+    if (error.code === 'auth/user-not-found') {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found in Firebase'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password',
       error: error.message
     });
   }
