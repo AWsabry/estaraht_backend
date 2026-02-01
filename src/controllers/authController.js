@@ -1,6 +1,5 @@
 import { supabase } from '../config/supabase.js';
 import admin from '../config/firebase.js';
-import crypto from 'crypto';
 
 // Helper: find user by email (doctor or patient)
 const findUserByEmail = async (email) => {
@@ -21,16 +20,6 @@ const findUserByEmail = async (email) => {
   if (patient) return { user: patient, type: 'patient', uid: patient.id };
 
   return null;
-};
-
-// Helper: generate random password
-const generatePassword = () => {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let pass = '';
-  for (let i = 0; i < 12; i++) {
-    pass += chars[crypto.randomInt(0, chars.length)];
-  }
-  return pass;
 };
 
 // Login admin user
@@ -101,15 +90,22 @@ export const login = async (req, res) => {
   }
 };
 
-// Reset password: provide email, get a new generated password (updates Firebase Auth)
+// Reset password: provide email + newPassword (updates Firebase Auth)
 export const resetPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, newPassword } = req.body;
 
-    if (!email) {
+    if (!email || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: 'Email and new password are required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
       });
     }
 
@@ -122,8 +118,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const newPassword = generatePassword();
-
     await admin.auth().updateUser(userInfo.uid, { password: newPassword });
 
     console.log(`✅ Password reset for ${email} (${userInfo.type})`);
@@ -134,8 +128,7 @@ export const resetPassword = async (req, res) => {
       data: {
         email,
         userType: userInfo.type,
-        userName: userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name,
-        newPassword
+        userName: userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name
       }
     });
   } catch (error) {

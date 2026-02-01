@@ -10,3 +10,5 @@ serviceAccountKey.json
 config/serviceAccountKey.json
 **/serviceAccountKey.json
 firebase-adminsdk-*.json
+**/estaraht-*.json
+src/estaraht-*.json
