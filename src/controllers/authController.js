@@ -112,7 +112,7 @@ export const requestPasswordReset = async (req, res) => {
     }
 
     const userName = userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name;
-    const baseUrl = process.env.DASHBOARD_URL || 'https://dashboard.estaraht.com';
+    const baseUrl = process.env.DASHBOARD_URL || 'https://app.estaraht.com';
     const resetLink = `${baseUrl}/reset-password?uid=${userInfo.uid}`;
 
     console.log(`🔐 Password reset requested for ${email} (${userInfo.type})`);
