@@ -90,22 +90,15 @@ export const login = async (req, res) => {
   }
 };
 
-// Reset password: provide email + newPassword (updates Firebase Auth)
-export const resetPassword = async (req, res) => {
+// 1. Request password reset (called by mobile) - returns uid for building reset link
+export const requestPasswordReset = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { email } = req.body;
 
-    if (!email || !newPassword) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email and new password are required'
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters'
+        message: 'Email is required'
       });
     }
 
@@ -118,18 +111,66 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    await admin.auth().updateUser(userInfo.uid, { password: newPassword });
+    const userName = userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name;
+    const baseUrl = process.env.DASHBOARD_URL || 'https://dashboard.estaraht.com';
+    const resetLink = `${baseUrl}/reset-password?uid=${userInfo.uid}`;
 
-    console.log(`✅ Password reset for ${email} (${userInfo.type})`);
+    console.log(`🔐 Password reset requested for ${email} (${userInfo.type})`);
 
     res.json({
       success: true,
-      message: 'Password reset successfully',
+      message: 'Password reset requested',
       data: {
+        uid: userInfo.uid,
         email,
         userType: userInfo.type,
-        userName: userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name
+        userName: userName || email,
+        resetLink
       }
+    });
+  } catch (error) {
+    console.error('Error requesting password reset:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing request',
+      error: error.message
+    });
+  }
+};
+
+// 2. Reset password (called from web form) - uses uid from link + newPassword + confirmPassword
+export const resetPassword = async (req, res) => {
+  try {
+    const { uid, newPassword, confirmPassword } = req.body;
+
+    if (!uid || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'UID, new password, and confirm password are required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password and confirm password do not match'
+      });
+    }
+
+    await admin.auth().updateUser(uid, { password: newPassword });
+
+    console.log(`✅ Password reset successful for uid: ${uid}`);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
     });
   } catch (error) {
     console.error('Error resetting password:', error);
@@ -137,7 +178,7 @@ export const resetPassword = async (req, res) => {
     if (error.code === 'auth/user-not-found') {
       return res.status(404).json({
         success: false,
-        message: 'User not found in Firebase'
+        message: 'Invalid or expired reset link'
       });
     }
 

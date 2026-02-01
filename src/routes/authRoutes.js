@@ -1,10 +1,13 @@
 import express from 'express';
-import { login, resetPassword } from '../controllers/authController.js';
+import { login, requestPasswordReset, resetPassword } from '../controllers/authController.js';
 
 const router = express.Router();
 
 router.post('/login', login);
-router.post('/reset-password', resetPassword);
+
+// Password reset flow
+router.post('/request-reset', requestPasswordReset);  // Mobile: get uid & link
+router.post('/reset-password', resetPassword);        // Web form: uid + newPassword + confirmPassword
 
 export default router;
 
