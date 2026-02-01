@@ -90,7 +90,7 @@ export const login = async (req, res) => {
   }
 };
 
-// 1. Request password reset (called by mobile) - returns uid for building reset link
+// 1. Request password reset (called by mobile) - returns reset link for email
 export const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
@@ -113,7 +113,7 @@ export const requestPasswordReset = async (req, res) => {
 
     const userName = userInfo.type === 'doctor' ? userInfo.user.full_name : userInfo.user.name;
     const baseUrl = process.env.DASHBOARD_URL || 'https://app.estaraht.com';
-    const resetLink = `${baseUrl}/reset-password?uid=${userInfo.uid}`;
+    const resetLink = `${baseUrl}/reset-password`;
 
     console.log(`🔐 Password reset requested for ${email} (${userInfo.type})`);
 
@@ -121,7 +121,6 @@ export const requestPasswordReset = async (req, res) => {
       success: true,
       message: 'Password reset requested',
       data: {
-        uid: userInfo.uid,
         email,
         userType: userInfo.type,
         userName: userName || email,
@@ -138,15 +137,15 @@ export const requestPasswordReset = async (req, res) => {
   }
 };
 
-// 2. Reset password (called from web form) - uses uid from link + newPassword + confirmPassword
+// 2. Reset password (called from web form) - uses email + newPassword + confirmPassword in body
 export const resetPassword = async (req, res) => {
   try {
-    const { uid, newPassword, confirmPassword } = req.body;
+    const { email, newPassword, confirmPassword } = req.body;
 
-    if (!uid || !newPassword || !confirmPassword) {
+    if (!email || !newPassword || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'UID, new password, and confirm password are required'
+        message: 'Email, new password, and confirm password are required'
       });
     }
 
@@ -164,9 +163,18 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    await admin.auth().updateUser(uid, { password: newPassword });
+    const userInfo = await findUserByEmail(email);
 
-    console.log(`✅ Password reset successful for uid: ${uid}`);
+    if (!userInfo) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    await admin.auth().updateUser(userInfo.uid, { password: newPassword });
+
+    console.log(`✅ Password reset successful for ${email} (${userInfo.type})`);
 
     res.json({
       success: true,
@@ -178,7 +186,7 @@ export const resetPassword = async (req, res) => {
     if (error.code === 'auth/user-not-found') {
       return res.status(404).json({
         success: false,
-        message: 'Invalid or expired reset link'
+        message: 'User not found in Firebase'
       });
     }
 
