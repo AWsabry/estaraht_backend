@@ -182,13 +182,15 @@ export const getDoctorStats = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('doctors')
-      .select('avg_rating, numb_session, numb_patients');
+      .select('average_rating, numb_session, numb_patients');
 
     if (error) throw error;
 
     const stats = {
       totalDoctors: data?.length || 0,
-      averageRating: data?.reduce((acc, d) => acc + (d.avg_rating || 0), 0) / (data?.length || 1),
+      averageRating:
+        (data?.reduce((acc, d) => acc + (Number(d.average_rating) || 0), 0) /
+          (data?.length || 1)) || 0,
       totalSessions: data?.reduce((acc, d) => acc + (d.numb_session || 0), 0),
       totalPatients: data?.reduce((acc, d) => acc + (d.numb_patients || 0), 0)
     };

@@ -1,0 +1,46 @@
+-- Reference schemas (tables already exist in your DB)
+
+-- payment_plans: currency column with default USD
+-- Run in Supabase SQL Editor if the column does not exist yet:
+ALTER TABLE public.payment_plans ADD COLUMN IF NOT EXISTS payment_currency text DEFAULT 'USD';
+
+-- payment_plans (full table reference)
+-- CREATE TABLE public.payment_plans (
+--   id uuid NOT NULL DEFAULT gen_random_uuid(),
+--   plan_name text NOT NULL,
+--   plan_name_ar text,
+--   description text,
+--   description_ar text,
+--   price numeric NOT NULL,
+--   payment_currency text DEFAULT 'USD'::text,
+--   sessions integer NOT NULL,
+--   is_first_time_only boolean DEFAULT false,
+--   is_active boolean DEFAULT true,
+--   sort_order integer DEFAULT 0,
+--   created_at timestamp with time zone DEFAULT now(),
+--   updated_at timestamp with time zone DEFAULT now(),
+--   plan_name_fr text,
+--   description_fr text,
+--   CONSTRAINT payment_plans_pkey PRIMARY KEY (id)
+-- );
+
+-- patient_plan_subscriptions (FK: patient_id -> patients(id), plan_id -> payment_plans(id))
+-- CREATE TABLE public.patient_plan_subscriptions (
+--   id uuid NOT NULL DEFAULT gen_random_uuid(),
+--   patient_id text NOT NULL,
+--   plan_id uuid NOT NULL,
+--   payment_id text,
+--   sessions_purchased integer NOT NULL,
+--   sessions_used integer DEFAULT 0,
+--   price_paid numeric NOT NULL,
+--   payment_gateway text,
+--   payment_currency text DEFAULT 'USD'::text,
+--   payment_status text DEFAULT 'completed'::text,
+--   subscribed_at timestamp with time zone DEFAULT now(),
+--   created_at timestamp with time zone DEFAULT now(),
+--   expires_at timestamp with time zone,
+--   status text DEFAULT 'active'::text,
+--   CONSTRAINT patient_plan_subscriptions_pkey PRIMARY KEY (id),
+--   CONSTRAINT patient_plan_subscriptions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
+--   CONSTRAINT patient_plan_subscriptions_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.payment_plans(id)
+-- );

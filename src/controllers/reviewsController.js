@@ -1,19 +1,52 @@
 import { supabase } from '../config/supabase.js';
 
-// Get all reviews
+// Get all reviews (enrich with patient and doctor email from their tables via IDs; no FK on reviews)
 export const getAllReviews = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: reviews, error } = await supabase
       .from('reviews')
       .select('*')
       .order('created_at', { ascending: false });
-    console.log(data);
     if (error) throw error;
+
+    const list = reviews || [];
+    const patientIds = [...new Set(list.map((r) => r.patient_id).filter(Boolean))];
+    const doctorIds = [...new Set(list.map((r) => r.doctor_id).filter(Boolean))];
+
+    let patientsMap = {};
+    let doctorsMap = {};
+
+    if (patientIds.length > 0) {
+      const { data: patients } = await supabase
+        .from('patients')
+        .select('id, email, name')
+        .in('id', patientIds);
+      if (patients) {
+        patientsMap = Object.fromEntries(patients.map((p) => [p.id, { id: p.id, email: p.email, name: p.name }]));
+      }
+    }
+    if (doctorIds.length > 0) {
+      const { data: doctors } = await supabase
+        .from('doctors')
+        .select('doctor_id, email, full_name')
+        .in('doctor_id', doctorIds);
+      if (doctors) {
+        doctorsMap = Object.fromEntries(
+          doctors.map((d) => [d.doctor_id, { doctor_id: d.doctor_id, email: d.email, full_name: d.full_name }])
+        );
+      }
+    }
+
+    const data = list.map((r) => ({
+      ...r,
+      patients: r.patient_id ? patientsMap[r.patient_id] || null : null,
+      doctors: r.doctor_id ? doctorsMap[r.doctor_id] || null : null,
+    }));
 
     res.json({
       success: true,
       data,
-      count: data?.length || 0
+      count: data.length
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);
