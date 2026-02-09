@@ -150,6 +150,14 @@ export const deleteDoctor = async (req, res) => {
 
     if (withdrawsError) throw withdrawsError;
 
+    // Cascade: delete related availabilities by doctor_id
+    const { error: availabilitiesError } = await supabase
+      .from('availabilities')
+      .delete()
+      .eq('doctor_id', id);
+
+    if (availabilitiesError) throw availabilitiesError;
+
     // Delete from Supabase database
     const { error: deleteError } = await supabase
       .from('doctors')
