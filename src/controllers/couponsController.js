@@ -158,6 +158,17 @@ export const createCoupon = async (req, res) => {
   try {
     const couponData = req.body;
 
+    // Validate coupon_value is a valid percentage (0-100) if provided
+    if (couponData.coupon_value !== null && couponData.coupon_value !== undefined && couponData.coupon_value !== '') {
+      const percentageValue = parseFloat(couponData.coupon_value);
+      if (isNaN(percentageValue) || percentageValue < 0 || percentageValue > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Coupon value must be a percentage between 0 and 100'
+        });
+      }
+    }
+
     // Check if coupon code already exists
     const { data: existing } = await supabase
       .from('coupon')
@@ -199,6 +210,17 @@ export const updateCoupon = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    // Validate coupon_value is a valid percentage (0-100) if provided
+    if (updates.coupon_value !== null && updates.coupon_value !== undefined && updates.coupon_value !== '') {
+      const percentageValue = parseFloat(updates.coupon_value);
+      if (isNaN(percentageValue) || percentageValue < 0 || percentageValue > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Coupon value must be a percentage between 0 and 100'
+        });
+      }
+    }
 
     const { data, error } = await supabase
       .from('coupon')
